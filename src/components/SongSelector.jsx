@@ -1,9 +1,11 @@
-import { useState, useRef } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { searchSongs } from '../data/songLibrary';
+import { searchHooktheory, hooktheoryToSong, checkProxyHealth } from '../data/hooktheory';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from './ui/tabs';
 import { Button } from './ui/button';
 import { Card, CardContent } from './ui/card';
 import { Input } from './ui/input';
+import { Badge } from './ui/badge';
 
 export default function SongSelector({ onConfirm }) {
   const [audioUrl, setAudioUrl] = useState(null);
@@ -12,7 +14,16 @@ export default function SongSelector({ onConfirm }) {
   const [results, setResults] = useState([]);
   const [selectedSong, setSelectedSong] = useState(null);
   const [activeTab, setActiveTab] = useState('upload');
+  const [source, setSource] = useState('local'); // 'local' | 'hooktheory'
+  const [proxyStatus, setProxyStatus] = useState(null);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
   const fileInputRef = useRef(null);
+
+  // 检测后端代理状态
+  useEffect(() => {
+    checkProxyHealth().then(setProxyStatus);
+  }, []);
 
   const handleFile = (e) => {
     const file = e.target.files?.[0];
@@ -23,8 +34,25 @@ export default function SongSelector({ onConfirm }) {
     setSelectedSong(null);
   };
 
-  const handleSearch = () => {
-    setResults(searchSongs(query));
+  const handleSearch = async () => {
+    if (!query.trim()) return;
+    setLoading(true);
+    setError('');
+    try {
+      if (source === 'local') {
+        setResults(searchSongs(query));
+      } else {
+        const data = await searchHooktheory(query);
+        const songs = (data.results || data || []).map(hooktheoryToSong);
+        setResults(songs);
+      }
+      setSelectedSong(null);
+    } catch (err) {
+      setError(err.message);
+      setResults([]);
+    } finally {
+      setLoading(false);
+    }
   };
 
   const confirm = () => {
@@ -33,9 +61,10 @@ export default function SongSelector({ onConfirm }) {
     } else if (activeTab === 'search' && selectedSong) {
       onConfirm({
         type: 'search',
-        audioUrl: selectedSong.audio,
+        audioUrl: null,
         name: `${selectedSong.title} - ${selectedSong.artist}`,
         song: selectedSong,
+        youtubeId: selectedSong.youtubeId,
       });
     }
   };
@@ -89,16 +118,50 @@ export default function SongSelector({ onConfirm }) {
         <TabsContent value="search" className="mt-4">
           <Card>
             <CardContent className="pt-6">
+              {/* 数据源切换 */}
+              <div className="mb-4 flex items-center gap-2">
+                <Button
+                  variant={source === 'local' ? 'default' : 'outline'}
+                  size="sm"
+                  onClick={() => setSource('local')}
+                >
+                  示例曲库
+                </Button>
+                <Button
+                  variant={source === 'hooktheory' ? 'default' : 'outline'}
+                  size="sm"
+                  onClick={() => setSource('hooktheory')}
+                >
+                  Hooktheory 曲库
+                </Button>
+                {source === 'hooktheory' && proxyStatus && (
+                  <Badge variant={proxyStatus.hasCreds ? 'default' : 'secondary'}>
+                    {proxyStatus.hasCreds ? '已连接' : '后端未配置凭据'}
+                  </Badge>
+                )}
+              </div>
+
               <div className="flex gap-2">
                 <Input
                   type="text"
-                  placeholder="输入歌曲名 / 歌手 / 风格"
+                  placeholder={
+                    source === 'local'
+                      ? '输入歌曲名 / 歌手 / 风格'
+                      : '输入英文歌曲名或歌手（如 Imagine、Adele）'
+                  }
                   value={query}
                   onChange={(e) => setQuery(e.target.value)}
                   onKeyDown={(e) => e.key === 'Enter' && handleSearch()}
                 />
-                <Button onClick={handleSearch}>搜索</Button>
+                <Button onClick={handleSearch} disabled={loading}>
+                  {loading ? '搜索中...' : '搜索'}
+                </Button>
               </div>
+
+              {error && (
+                <p className="mt-3 text-sm text-red-500">{error}</p>
+              )}
+
               <ul className="mt-4 space-y-2">
                 {results.map((song) => (
                   <li
@@ -118,9 +181,12 @@ export default function SongSelector({ onConfirm }) {
                   </li>
                 ))}
               </ul>
-              {results.length === 0 && (
+
+              {!loading && results.length === 0 && !error && (
                 <p className="mt-4 text-xs text-muted-foreground">
-                  暂无结果（当前为示例曲库，后续接入真实曲谱库）
+                  {source === 'local'
+                    ? '暂无结果（示例曲库）'
+                    : '输入关键词搜索，或先在后端配置 Hooktheory 凭据'}
                 </p>
               )}
             </CardContent>

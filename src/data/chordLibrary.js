@@ -111,6 +111,25 @@ export function buildDiatonicChords(keyNote, isMajor) {
   return result;
 }
 
+// 根据调名（如 "C 大调"）生成标准顺阶三和弦名（如 C、Dm、Em、F、G、Am、Bdim）
+// 这是应用内部统一的「和弦名」格式，Mock 数据与 Hooktheory 数据都对齐到它
+export function getDiatonicChordNames(keyName) {
+  const isMajor = keyName.includes('大调');
+  const scale = isMajor ? majorScales : minorScales;
+  const notes = scale[keyName]?.notes;
+  if (!notes) return [];
+
+  // 大调级数质量：I ii iii IV V vi vii°
+  const majorQualities = ['', 'm', 'm', '', '', 'm', 'dim'];
+  // 自然小调级数质量：i ii° III iv v VI VII
+  const minorQualities = ['m', 'dim', '', 'm', 'm', '', ''];
+
+  return notes.map((root, i) => {
+    const quality = isMajor ? majorQualities[i] : minorQualities[i];
+    return root + quality;
+  });
+}
+
 // 罗马数字级数 -> 该调实际和弦名的映射（用更友好的方式）
 export const degreeLabels = ['I', 'ii', 'iii', 'IV', 'V', 'vi', 'vii°'];
 
