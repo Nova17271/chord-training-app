@@ -1,6 +1,7 @@
-// 步骤 3：匹配和弦（根据旋律、已使用和弦、套路库）
 import { useState } from 'react';
-import { chordProgressions, progressionToChords, majorScales, minorScales } from '../../data/chordLibrary';
+import { chordProgressions, progressionToChords } from '../../data/chordLibrary';
+import { Button } from '../ui/button';
+import { Card, CardContent } from '../ui/card';
 
 export default function StepChord({ answer, onNext }) {
   const [chosenChords, setChosenChords] = useState([]);
@@ -8,17 +9,14 @@ export default function StepChord({ answer, onNext }) {
 
   const freeMode = answer == null;
 
-  // 候选和弦：有答案用该调的顺阶和弦；自由模式给出一组常用调的和弦
   const chordOptions = freeMode
-    ? ['C', 'Dm', 'Em', 'F', 'G', 'Am', 'Bdim', 'C7', 'G7', 'D', 'E', 'A', 'Am', 'Fm']
+    ? ['C', 'Dm', 'Em', 'F', 'G', 'Am', 'Bdim', 'C7', 'G7', 'D', 'E', 'A', 'Fm']
     : answer.diatonicChords;
 
   const toggleChord = (chord) => {
-    if (chosenChords.includes(chord)) {
-      setChosenChords(chosenChords.filter((c) => c !== chord));
-    } else {
-      setChosenChords([...chosenChords, chord]);
-    }
+    setChosenChords((prev) =>
+      prev.includes(chord) ? prev.filter((c) => c !== chord) : [...prev, chord]
+    );
   };
 
   const judge = () => setJudged(true);
@@ -35,7 +33,6 @@ export default function StepChord({ answer, onNext }) {
       targetSet.every((v, i) => v === chosenSet[i]);
   }
 
-  // 套路库：有答案时按调匹配；自由模式展示全部
   const matchedProgressions = freeMode
     ? chordProgressions
     : chordProgressions.filter((p) => {
@@ -46,26 +43,29 @@ export default function StepChord({ answer, onNext }) {
   const displayKey = freeMode ? 'C 大调' : answer.key;
 
   return (
-    <div className="step">
-      <h2>步骤 3 / 4：匹配和弦</h2>
-      <p className="subtitle">
+    <div>
+      <h2 className="text-2xl font-semibold">步骤 3 / 4：匹配和弦</h2>
+      <p className="mt-1 mb-6 text-sm text-muted-foreground">
         根据旋律走向、已使用的和弦，从套路库中找到最可能的和弦进行。
         勾选出你听到/推断出的和弦（不限顺序）。
       </p>
 
       {answer?.melodyHint && (
-        <div className="melody-hint">
+        <div className="mb-5 rounded-lg border border-yellow-500/40 bg-yellow-500/10 px-4 py-3 text-sm text-yellow-600 dark:text-yellow-400">
           <strong>旋律提示：</strong>
           {answer.melodyHint}
         </div>
       )}
 
-      <div className="chord-pick">
+      <div className="flex flex-wrap gap-2.5">
         {chordOptions.map((chord) => (
           <button
             key={chord}
             className={
-              'chord-pick-btn' + (chosenChords.includes(chord) ? ' active' : '')
+              'rounded-lg border-2 px-4 py-2.5 font-mono font-semibold cursor-pointer transition-colors ' +
+              (chosenChords.includes(chord)
+                ? 'border-primary bg-primary text-primary-foreground'
+                : 'border-border hover:border-primary')
             }
             onClick={() => toggleChord(chord)}
           >
@@ -75,18 +75,21 @@ export default function StepChord({ answer, onNext }) {
       </div>
 
       {!judged && (
-        <button
-          className="primary-btn"
-          disabled={chosenChords.length === 0}
-          onClick={judge}
-        >
+        <Button size="lg" className="mt-6" disabled={chosenChords.length === 0} onClick={judge}>
           提交答案
-        </button>
+        </Button>
       )}
 
       {judged && (
-        <div className="chord-result">
-          <div className={freeMode ? 'feedback ok' : correct ? 'feedback ok' : 'feedback bad'}>
+        <div>
+          <div
+            className={
+              'mt-5 rounded-lg px-4 py-3 text-sm font-medium ' +
+              (freeMode || correct
+                ? 'bg-green-500/10 text-green-600 dark:text-green-400'
+                : 'bg-red-500/10 text-red-600 dark:text-red-400')
+            }
+          >
             {freeMode
               ? '自由练习模式：以下为你的选择与常用套路库参考。'
               : correct
@@ -94,57 +97,80 @@ export default function StepChord({ answer, onNext }) {
               : '❌ 还不完全对，看看下面的对比和套路推荐。'}
           </div>
 
-          <div className="detail-card">
-            {!freeMode && (
-              <>
-                <h4>标准答案和弦</h4>
-                <div className="chord-list">
-                  {target.map((c, i) => (
-                    <span key={i} className="chord-chip">{c}</span>
-                  ))}
-                </div>
-              </>
-            )}
-            <h4>你的答案</h4>
-            <div className="chord-list">
-              {chosenChords.length ? (
-                chosenChords.map((c, i) => (
-                  <span
-                    key={i}
-                    className={'chord-chip' + (!freeMode && targetSet.includes(c) ? '' : ' extra')}
-                  >
-                    {c}
-                  </span>
-                ))
-              ) : (
-                <span className="hint">（未选择）</span>
-              )}
-            </div>
-
-            <h4>套路库推荐（{displayKey}）</h4>
-            <div className="progression-list">
-              {matchedProgressions.map((p) => {
-                const pChords = progressionToChords(p.progression, displayKey);
-                return (
-                  <div key={p.id} className="progression-item">
-                    <div className="prog-name">
-                      {p.name} <span className="prog-style">{p.style}</span>
-                    </div>
-                    <div className="prog-chords">
-                      {pChords.map((c, i) => (
-                        <span key={i} className="chord-chip small">{c}</span>
-                      ))}
-                    </div>
-                    <div className="prog-desc">{p.description}</div>
+          <Card className="mt-5">
+            <CardContent className="pt-5">
+              {!freeMode && (
+                <>
+                  <h4 className="mb-3 font-semibold">标准答案和弦</h4>
+                  <div className="flex flex-wrap gap-2">
+                    {target.map((c, i) => (
+                      <span
+                        key={i}
+                        className="rounded-md border border-primary/30 bg-primary/10 px-3 py-1.5 font-mono font-semibold text-primary"
+                      >
+                        {c}
+                      </span>
+                    ))}
                   </div>
-                );
-              })}
-            </div>
-          </div>
+                </>
+              )}
 
-          <button className="primary-btn" onClick={onNext}>
+              <h4 className="mt-5 mb-3 font-semibold">你的答案</h4>
+              <div className="flex flex-wrap gap-2">
+                {chosenChords.length ? (
+                  chosenChords.map((c, i) => (
+                    <span
+                      key={i}
+                      className={
+                        'rounded-md border px-3 py-1.5 font-mono font-semibold ' +
+                        (!freeMode && targetSet.includes(c)
+                          ? 'border-primary/30 bg-primary/10 text-primary'
+                          : 'border-red-500/40 bg-red-500/10 text-red-500')
+                      }
+                    >
+                      {c}
+                    </span>
+                  ))
+                ) : (
+                  <span className="text-sm text-muted-foreground">（未选择）</span>
+                )}
+              </div>
+
+              <h4 className="mt-5 mb-3 font-semibold">套路库推荐（{displayKey}）</h4>
+              <div className="space-y-3">
+                {matchedProgressions.map((p) => {
+                  const pChords = progressionToChords(p.progression, displayKey);
+                  return (
+                    <div key={p.id} className="rounded-lg border p-4">
+                      <div className="font-semibold">
+                        {p.name}
+                        <span className="ml-2 text-xs font-normal text-muted-foreground">
+                          {p.style}
+                        </span>
+                      </div>
+                      <div className="mt-2 flex flex-wrap gap-1.5">
+                        {pChords.map((c, i) => (
+                          <span
+                            key={i}
+                            className="rounded bg-muted px-2 py-1 font-mono text-xs font-semibold"
+                          >
+                            {c}
+                          </span>
+                        ))}
+                      </div>
+                      <div className="mt-2 text-xs text-muted-foreground">
+                        {p.description}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </CardContent>
+          </Card>
+
+          <Button size="lg" className="mt-6" onClick={onNext}>
             下一步 →
-          </button>
+          </Button>
         </div>
       )}
     </div>

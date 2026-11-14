@@ -1,13 +1,13 @@
-// 步骤 2：确定是哪个调（构成音 + 和弦组）
 import { useState } from 'react';
 import { majorScales, minorScales } from '../../data/chordLibrary';
+import { Button } from '../ui/button';
+import { Card, CardContent } from '../ui/card';
 
 export default function StepKey({ answer, onNext }) {
   const [choice, setChoice] = useState(null);
   const [judged, setJudged] = useState(false);
 
   const freeMode = answer == null;
-  // 自由模式默认展示大调 + 小调所有调
   const scaleMap = freeMode || answer.mode === 'major' ? majorScales : minorScales;
   const keyOptions = Object.keys(scaleMap);
 
@@ -21,23 +21,34 @@ export default function StepKey({ answer, onNext }) {
   const displayScale = majorScales[displayKey] || minorScales[displayKey];
 
   return (
-    <div className="step">
-      <h2>步骤 2 / 4：确定是哪个调</h2>
-      <p className="subtitle">
+    <div>
+      <h2 className="text-2xl font-semibold">步骤 2 / 4：确定是哪个调</h2>
+      <p className="mt-1 mb-6 text-sm text-muted-foreground">
         通过听主音（do）所在的位置，确定具体的调。选择后下方会显示该调的构成音与和弦组。
       </p>
 
       {freeMode && (
-        <div className="no-answer-banner small">
+        <div className="mb-4 rounded-lg border border-yellow-500/40 bg-yellow-500/10 px-4 py-3 text-sm text-yellow-600 dark:text-yellow-400">
           自由练习模式：可任选大调或小调中的任意调查看其构成音与和弦组。
         </div>
       )}
 
-      <div className="options key-options">
+      <div className="flex flex-wrap gap-2.5">
         {keyOptions.map((key) => {
-          let cls = 'option key-option';
-          if (judged && key === choice) cls += freeMode ? ' selected' : correct ? ' correct' : ' wrong';
-          if (!freeMode && judged && key === answer.key) cls += ' correct';
+          let cls = 'min-w-[90px] flex-1 rounded-lg border-2 px-3 py-3 text-center text-sm font-semibold cursor-pointer transition-colors ';
+          if (!judged) {
+            cls += 'border-border hover:border-primary';
+          } else if (key === choice) {
+            cls += freeMode
+              ? 'border-primary bg-primary/10'
+              : correct
+              ? 'border-green-500 bg-green-500/10'
+              : 'border-red-500 bg-red-500/10';
+          } else if (!freeMode && key === answer.key) {
+            cls += 'border-green-500 bg-green-500/10';
+          } else {
+            cls += 'border-border opacity-50';
+          }
           return (
             <button key={key} className={cls} onClick={() => judge(key)}>
               {key}
@@ -47,8 +58,15 @@ export default function StepKey({ answer, onNext }) {
       </div>
 
       {judged && displayScale && (
-        <div className="key-detail">
-          <div className={freeMode ? 'feedback ok' : correct ? 'feedback ok' : 'feedback bad'}>
+        <div>
+          <div
+            className={
+              'mt-5 rounded-lg px-4 py-3 text-sm font-medium ' +
+              (freeMode || correct
+                ? 'bg-green-500/10 text-green-600 dark:text-green-400'
+                : 'bg-red-500/10 text-red-600 dark:text-red-400')
+            }
+          >
             {freeMode
               ? `你选择了「${choice}」，下面是它的构成音与和弦组。`
               : correct
@@ -56,36 +74,49 @@ export default function StepKey({ answer, onNext }) {
               : `❌ 正确答案是「${answer.key}」。看看下面这个调的构成音，对比你听到的主音。`}
           </div>
 
-          <div className="detail-card">
-            <h4>「{displayKey}」的构成音（音阶）</h4>
-            <div className="note-list">
-              {displayScale.notes.map((n) => (
-                <span key={n} className="note-chip">{n}</span>
-              ))}
-            </div>
-            <h4>顺阶和弦组</h4>
-            <div className="chord-list">
-              {displayScale.notes.map((n, i) => {
-                const root = n;
-                const third = displayScale.notes[(i + 2) % 7];
-                const fifth = displayScale.notes[(i + 4) % 7];
-                const chord = `${root}${third}${fifth}`;
-                return (
-                  <span key={i} className="chord-chip">
-                    {chord}
-                    <small className="degree">({['I', 'ii', 'iii', 'IV', 'V', 'vi', 'vii°'][i]})</small>
+          <Card className="mt-5">
+            <CardContent className="pt-5">
+              <h4 className="mb-3 font-semibold">「{displayKey}」的构成音（音阶）</h4>
+              <div className="flex flex-wrap gap-2">
+                {displayScale.notes.map((n) => (
+                  <span
+                    key={n}
+                    className="rounded-md border bg-muted px-3 py-1.5 font-mono font-semibold"
+                  >
+                    {n}
                   </span>
-                );
-              })}
-            </div>
-          </div>
+                ))}
+              </div>
+
+              <h4 className="mt-5 mb-3 font-semibold">顺阶和弦组</h4>
+              <div className="flex flex-wrap gap-2">
+                {displayScale.notes.map((n, i) => {
+                  const root = n;
+                  const third = displayScale.notes[(i + 2) % 7];
+                  const fifth = displayScale.notes[(i + 4) % 7];
+                  const chord = `${root}${third}${fifth}`;
+                  return (
+                    <span
+                      key={i}
+                      className="rounded-md border border-primary/30 bg-primary/10 px-3 py-1.5 font-mono font-semibold text-primary"
+                    >
+                      {chord}
+                      <small className="ml-1.5 text-xs font-normal text-muted-foreground">
+                        ({['I', 'ii', 'iii', 'IV', 'V', 'vi', 'vii°'][i]})
+                      </small>
+                    </span>
+                  );
+                })}
+              </div>
+            </CardContent>
+          </Card>
         </div>
       )}
 
       {judged && (
-        <button className="primary-btn" onClick={onNext}>
+        <Button size="lg" className="mt-6" onClick={onNext}>
           下一步 →
-        </button>
+        </Button>
       )}
     </div>
   );
