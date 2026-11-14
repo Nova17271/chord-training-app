@@ -1,11 +1,9 @@
-import { useState, useRef, useEffect } from 'react';
+import { useState, useRef } from 'react';
 import { searchSongs } from '../data/songLibrary';
-import { searchHooktheory, hooktheoryToSong, checkProxyHealth } from '../data/hooktheory';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from './ui/tabs';
 import { Button } from './ui/button';
 import { Card, CardContent } from './ui/card';
 import { Input } from './ui/input';
-import { Badge } from './ui/badge';
 
 export default function SongSelector({ onConfirm }) {
   const [audioUrl, setAudioUrl] = useState(null);
@@ -14,16 +12,8 @@ export default function SongSelector({ onConfirm }) {
   const [results, setResults] = useState([]);
   const [selectedSong, setSelectedSong] = useState(null);
   const [activeTab, setActiveTab] = useState('upload');
-  const [source, setSource] = useState('local'); // 'local' | 'hooktheory'
-  const [proxyStatus, setProxyStatus] = useState(null);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState('');
+  const [hasSearched, setHasSearched] = useState(false);
   const fileInputRef = useRef(null);
-
-  // 检测后端代理状态
-  useEffect(() => {
-    checkProxyHealth().then(setProxyStatus);
-  }, []);
 
   const handleFile = (e) => {
     const file = e.target.files?.[0];
@@ -34,25 +24,10 @@ export default function SongSelector({ onConfirm }) {
     setSelectedSong(null);
   };
 
-  const handleSearch = async () => {
-    if (!query.trim()) return;
-    setLoading(true);
-    setError('');
-    try {
-      if (source === 'local') {
-        setResults(searchSongs(query));
-      } else {
-        const data = await searchHooktheory(query);
-        const songs = (data.results || data || []).map(hooktheoryToSong);
-        setResults(songs);
-      }
-      setSelectedSong(null);
-    } catch (err) {
-      setError(err.message);
-      setResults([]);
-    } finally {
-      setLoading(false);
-    }
+  const handleSearch = () => {
+    setResults(searchSongs(query));
+    setHasSearched(true);
+    setSelectedSong(null);
   };
 
   const confirm = () => {
@@ -64,7 +39,6 @@ export default function SongSelector({ onConfirm }) {
         audioUrl: null,
         name: `${selectedSong.title} - ${selectedSong.artist}`,
         song: selectedSong,
-        youtubeId: selectedSong.youtubeId,
       });
     }
   };
@@ -76,13 +50,13 @@ export default function SongSelector({ onConfirm }) {
     <div>
       <h2 className="text-2xl font-semibold">第一步：确定要扒的音乐</h2>
       <p className="mt-1 mb-6 text-sm text-muted-foreground">
-        上传本地音频，或搜索已知曲目
+        从练习曲库选择，或上传自己的音频自由练习
       </p>
 
       <Tabs value={activeTab} onValueChange={setActiveTab}>
         <TabsList>
           <TabsTrigger value="upload">上传音频</TabsTrigger>
-          <TabsTrigger value="search">搜索音乐</TabsTrigger>
+          <TabsTrigger value="search">练习曲库</TabsTrigger>
         </TabsList>
 
         <TabsContent value="upload" className="mt-4">
@@ -109,7 +83,8 @@ export default function SongSelector({ onConfirm }) {
                 </div>
               )}
               <p className="mt-3 text-xs text-muted-foreground">
-                支持 mp3 / wav / m4a / ogg 等常见格式，浏览器本地播放
+                支持 mp3 / wav / m4a / ogg 等格式，浏览器本地播放。此模式为「自由练习」，
+                无标准答案判分，需自行判断并完成四步。
               </p>
             </CardContent>
           </Card>
@@ -118,52 +93,19 @@ export default function SongSelector({ onConfirm }) {
         <TabsContent value="search" className="mt-4">
           <Card>
             <CardContent className="pt-6">
-              {/* 数据源切换 */}
-              <div className="mb-4 flex items-center gap-2">
-                <Button
-                  variant={source === 'local' ? 'default' : 'outline'}
-                  size="sm"
-                  onClick={() => setSource('local')}
-                >
-                  示例曲库
-                </Button>
-                <Button
-                  variant={source === 'hooktheory' ? 'default' : 'outline'}
-                  size="sm"
-                  onClick={() => setSource('hooktheory')}
-                >
-                  Hooktheory 曲库
-                </Button>
-                {source === 'hooktheory' && proxyStatus && (
-                  <Badge variant={proxyStatus.hasCreds ? 'default' : 'secondary'}>
-                    {proxyStatus.hasCreds ? '已连接' : '后端未配置凭据'}
-                  </Badge>
-                )}
-              </div>
-
               <div className="flex gap-2">
                 <Input
                   type="text"
-                  placeholder={
-                    source === 'local'
-                      ? '输入歌曲名 / 歌手 / 风格'
-                      : '输入英文歌曲名或歌手（如 Imagine、Adele）'
-                  }
+                  placeholder="搜索歌曲名 / 歌手 / 风格（如：卡农、Adele、民谣）"
                   value={query}
                   onChange={(e) => setQuery(e.target.value)}
                   onKeyDown={(e) => e.key === 'Enter' && handleSearch()}
                 />
-                <Button onClick={handleSearch} disabled={loading}>
-                  {loading ? '搜索中...' : '搜索'}
-                </Button>
+                <Button onClick={handleSearch}>搜索</Button>
               </div>
 
-              {error && (
-                <p className="mt-3 text-sm text-red-500">{error}</p>
-              )}
-
               <ul className="mt-4 space-y-2">
-                {results.map((song) => (
+                {(hasSearched ? results : searchSongs('')).map((song) => (
                   <li
                     key={song.id}
                     className={
@@ -182,11 +124,9 @@ export default function SongSelector({ onConfirm }) {
                 ))}
               </ul>
 
-              {!loading && results.length === 0 && !error && (
+              {hasSearched && results.length === 0 && (
                 <p className="mt-4 text-xs text-muted-foreground">
-                  {source === 'local'
-                    ? '暂无结果（示例曲库）'
-                    : '输入关键词搜索，或先在后端配置 Hooktheory 凭据'}
+                  没有找到匹配的曲目，试试其它关键词
                 </p>
               )}
             </CardContent>

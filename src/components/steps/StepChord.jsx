@@ -11,7 +11,7 @@ export default function StepChord({ answer, onNext }) {
 
   const chordOptions = freeMode
     ? ['C', 'Dm', 'Em', 'F', 'G', 'Am', 'Bdim', 'C7', 'G7', 'D', 'E', 'A', 'Fm']
-    : answer.diatonicChords;
+    : answer.chordOptions || answer.diatonicChords;
 
   const toggleChord = (chord) => {
     setChosenChords((prev) =>
